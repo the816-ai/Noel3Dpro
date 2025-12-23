@@ -138,7 +138,7 @@
 
     <video id="input_video" style="display:none; transform: scaleX(-1)" playsinline autoplay></video>
     <video id="camera-video" playsinline autoplay></video>
-    <audio id="bg-music" src="./audio.mp3" loop></audio>
+    <audio id="bg-music" src="./audio.MP3" loop preload="auto"></audio>
 
     <script type="module">
         import * as THREE from 'three';
@@ -340,11 +340,30 @@
             const overlay = document.getElementById('start-overlay');
             const audio = document.getElementById('bg-music');
             
+            // Khởi tạo audio với interaction
+            const startAudio = () => {
+                if (audio) {
+                    audio.volume = 0.7; // Đặt volume
+                    audio.play().catch(e => { 
+                        console.log("Audio Error:", e);
+                        // Thử lại khi user tương tác
+                        document.addEventListener('click', () => {
+                            audio.play().catch(console.error);
+                        }, { once: true });
+                    });
+                }
+            };
+            
             overlay.addEventListener('click', () => {
                 overlay.style.opacity = 0;
                 setTimeout(() => overlay.remove(), 500);
                 initTouchControls(); 
-                audio.play().catch(e => { console.log("Audio Error:", e); });
+                startAudio();
+            });
+            
+            // Tự động bắt đầu audio khi page load (nếu browser cho phép)
+            window.addEventListener('load', () => {
+                audio.load(); // Preload audio
             });
 
             const container = document.getElementById('canvas-container');
@@ -633,75 +652,96 @@
             const centerY = camera.position.y;
             const centerZ = camera.position.z - 3;
 
-            // Bùng nổ tất cả ảnh ra xung quanh
+            // Bùng nổ tất cả ảnh ra xung quanh - MƯỢT MÀ HƠN
             polaroidGroup.children.forEach((polaroid, index) => {
                 if (polaroid === inspectedPhoto) return;
                 
-                // Tạo hướng bùng nổ ngẫu nhiên nhưng đều
+                // Lưu vị trí ban đầu để quay về
+                const startPos = polaroid.position.clone();
+                const startRot = polaroid.rotation.clone();
+                const startScale = polaroid.scale.clone();
+                
+                // Tạo hướng bùng nổ đều đặn hơn
                 const angle = (index / polaroidGroup.children.length) * Math.PI * 2;
-                const radius = 8 + Math.random() * 4; // Khoảng cách bùng nổ
-                const height = (Math.random() - 0.5) * 6; // Độ cao ngẫu nhiên
+                const spreadAngle = angle + (Math.random() - 0.5) * 0.5; // Thêm một chút ngẫu nhiên
+                const radius = 10 + Math.random() * 3; // Khoảng cách bùng nổ xa hơn
+                const heightVariation = (Math.random() - 0.5) * 4; // Độ cao ngẫu nhiên
                 
-                const explodeX = centerX + Math.cos(angle) * radius;
-                const explodeY = centerY + Math.sin(angle * 0.5) * 3 + height;
-                const explodeZ = centerZ + Math.sin(angle) * radius;
+                const explodeX = centerX + Math.cos(spreadAngle) * radius;
+                const explodeY = centerY + Math.sin(spreadAngle * 0.3) * 2 + heightVariation;
+                const explodeZ = centerZ + Math.sin(spreadAngle) * radius;
                 
-                // Rotation ngẫu nhiên khi bùng nổ
-                const randomRotX = (Math.random() - 0.5) * Math.PI * 2;
-                const randomRotY = (Math.random() - 0.5) * Math.PI * 2;
-                const randomRotZ = (Math.random() - 0.5) * Math.PI * 2;
+                // Rotation với physics-like motion (quay nhiều vòng)
+                const randomRotX = (Math.random() - 0.5) * Math.PI * 4; // Quay nhiều vòng hơn
+                const randomRotY = (Math.random() - 0.5) * Math.PI * 4;
+                const randomRotZ = (Math.random() - 0.5) * Math.PI * 4;
                 
-                // Scale tăng lên rồi giảm xuống
-                gsap.to(polaroid.scale, { 
-                    x: 1.5, 
-                    y: 1.5, 
-                    z: 1.5, 
-                    duration: 0.3, 
-                    ease: "power2.out",
-                    onComplete: () => {
-                        gsap.to(polaroid.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: "power2.in" });
-                    }
+                // Tạo timeline để đồng bộ tất cả animations
+                const tl = gsap.timeline();
+                
+                // Phase 1: Phóng to nhanh (0.2s)
+                tl.to(polaroid.scale, {
+                    x: 1.6,
+                    y: 1.6,
+                    z: 1.6,
+                    duration: 0.2,
+                    ease: "power3.out"
                 });
                 
-                // Di chuyển ra xa
-                gsap.to(polaroid.position, {
+                // Phase 2: Bắt đầu bùng nổ (0.1s overlap)
+                tl.to(polaroid.scale, {
+                    x: 1.2,
+                    y: 1.2,
+                    z: 1.2,
+                    duration: 0.3,
+                    ease: "power2.inOut"
+                }, "-=0.1");
+                
+                // Phase 3: Di chuyển ra xa với motion mượt mà hơn
+                tl.to(polaroid.position, {
                     x: explodeX,
                     y: explodeY,
                     z: explodeZ,
-                    duration: 1.2,
-                    ease: "power2.out",
-                    delay: index * 0.02
-                });
+                    duration: 0.8,
+                    ease: "power1.out" // Motion tự nhiên hơn, không quá cứng
+                }, "-=0.2");
                 
-                // Quay ngẫu nhiên
-                gsap.to(polaroid.rotation, {
+                // Quay với momentum (quay nhanh rồi chậm dần)
+                tl.to(polaroid.rotation, {
                     x: randomRotX,
                     y: randomRotY,
                     z: randomRotZ,
-                    duration: 1.2,
-                    ease: "power2.out",
-                    delay: index * 0.02
-                });
+                    duration: 0.8,
+                    ease: "power1.out"
+                }, "-=0.8");
                 
-                // Sau đó quay về vị trí ban đầu
-                setTimeout(() => {
-                    const t = polaroid.userData.targetPos;
-                    const r = polaroid.userData.targetRot;
-                    gsap.to(polaroid.position, {
-                        x: t.x,
-                        y: t.y,
-                        z: t.z,
-                        duration: 1.5,
-                        ease: "elastic.out(1, 0.5)"
-                    });
-                    gsap.to(polaroid.rotation, {
-                        x: 0,
-                        y: r.y,
-                        z: r.z,
-                        duration: 1.5,
-                        ease: "elastic.out(1, 0.5)"
-                    });
-                }, 1500);
+                // Phase 4: Quay về vị trí ban đầu với elastic bounce mượt mà
+                tl.to(polaroid.scale, {
+                    x: 1,
+                    y: 1,
+                    z: 1,
+                    duration: 1.2,
+                    ease: "elastic.out(1, 0.6)" // Mượt mà hơn
+                }, "+=0.2");
+                
+                tl.to(polaroid.position, {
+                    x: polaroid.userData.targetPos.x,
+                    y: polaroid.userData.targetPos.y,
+                    z: polaroid.userData.targetPos.z,
+                    duration: 1.5,
+                    ease: "elastic.out(1, 0.5)" // Bounce mượt mà
+                }, "-=1.0");
+                
+                tl.to(polaroid.rotation, {
+                    x: 0,
+                    y: polaroid.userData.targetRot.y,
+                    z: polaroid.userData.targetRot.z,
+                    duration: 1.5,
+                    ease: "elastic.out(1, 0.5)"
+                }, "-=1.5");
+                
+                // Delay từng ảnh một để tạo hiệu ứng cascade mượt mà
+                tl.delay(index * 0.015); // Delay ngắn hơn nhưng nhiều ảnh hơn
             });
         }
 
