@@ -150,12 +150,14 @@
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 800;
         
-        const ENABLE_POST_PROCESSING = true; 
+        // Tối ưu hiệu suất: Giảm post-processing ban đầu, tăng dần sau khi load xong
+        const ENABLE_POST_PROCESSING = !isMobile; // Tắt trên mobile để tăng tốc
         
         const TOTAL_PHOTOS = 9; 
-        const PARTICLE_RATIO = isMobile ? 0.3 : 1.0; 
+        // Giảm particles ban đầu để tải nhanh hơn, tăng dần sau
+        const PARTICLE_RATIO = isMobile ? 0.2 : 0.6; // Giảm từ 1.0 xuống 0.6
         
-        const AI_SKIP_FRAMES = isMobile ? 8 : 2; 
+        const AI_SKIP_FRAMES = isMobile ? 10 : 3; // Tăng skip frames để giảm CPU 
 
         const LYRICS_DATA = [{time:0.00,text:"Last Christmas, I gave you my heart"},{time:4.00,text:"But the very next day, you gave it away"},{time:7.13,text:"Last Christmas, I gave you my heart"},{time:11.08,text:"But the very next day, you gave it away"},{time:15.08,text:"This year, to save me from tears"},{time:18.99,text:"I'll give it to someone special"},{time:23.12,text:"Last Christmas, I gave you my heart"},{time:27.02,text:"But the very next day, you gave it away"},{time:31.06,text:"This year, to save me from tears"},{time:34.97,text:"I'll give it to someone special"}];
         
@@ -171,10 +173,11 @@
             rotateSpeed: 0.08 
         };
 
+        // Giảm particles để tải nhanh hơn
         const LAYERS = [
-            { id: 'inner_snow', shape: 'Snowflake', count: Math.floor(1200 * PARTICLE_RATIO), opacity: 0.9, color: '#ffffff', speed: 0.0005, size: 0.06, radius: 0.48, startY: 1.1, endY: -0.3, drift: 0.01, twinkle: false, rotateWithJar: true },
-            { id: 'snow_main', shape: 'Snowflake', count: Math.floor(500 * PARTICLE_RATIO), opacity: 0.9, color: '#e0ffff', speed: 0.0010, size: 0.18, radius: 5.0, startY: 7.0, endY: -6.0, drift: 0.05, twinkle: true, rotateWithJar: true },
-            { id: 'gold_dust', shape: 'Circle', count: Math.floor(500 * PARTICLE_RATIO), opacity: 0.8, color: '#ffcc00', speed: 0.0006, size: 0.03, radius: 4.5, startY: 6.0, endY: -4.0, drift: 0.08, twinkle: true, rotateWithJar: true }
+            { id: 'inner_snow', shape: 'Snowflake', count: Math.floor(800 * PARTICLE_RATIO), opacity: 0.9, color: '#ffffff', speed: 0.0005, size: 0.06, radius: 0.48, startY: 1.1, endY: -0.3, drift: 0.01, twinkle: false, rotateWithJar: true },
+            { id: 'snow_main', shape: 'Snowflake', count: Math.floor(300 * PARTICLE_RATIO), opacity: 0.9, color: '#e0ffff', speed: 0.0010, size: 0.18, radius: 5.0, startY: 7.0, endY: -6.0, drift: 0.05, twinkle: true, rotateWithJar: true },
+            { id: 'gold_dust', shape: 'Circle', count: Math.floor(300 * PARTICLE_RATIO), opacity: 0.8, color: '#ffcc00', speed: 0.0006, size: 0.03, radius: 4.5, startY: 6.0, endY: -4.0, drift: 0.08, twinkle: true, rotateWithJar: true }
         ];
 
         let scene, camera, renderer, composer, bloomPass, carModel, mixer, particleSystems = {}, textureCache = {}, polaroidTextures = [], polaroidGroup, clock = new THREE.Clock(), bgParticleGroup;
@@ -340,25 +343,78 @@
             const overlay = document.getElementById('start-overlay');
             const audio = document.getElementById('bg-music');
             
-            // Khởi tạo audio với interaction
+            // Khởi tạo audio - CẢI THIỆN ĐỂ CHẮC CHẮN PHÁT ĐƯỢC
+            let audioStarted = false;
+            
             const startAudio = () => {
-                if (audio) {
-                    audio.volume = 0.7; // Đặt volume
-                    audio.play().catch(e => { 
-                        console.log("Audio Error:", e);
-                        // Thử lại khi user tương tác
-                        document.addEventListener('click', () => {
-                            audio.play().catch(console.error);
-                        }, { once: true });
+                if (!audio || audioStarted) return;
+                
+                audio.volume = 0.7; // Đặt volume
+                audio.loop = true; // Đảm bảo loop
+                
+                // Đảm bảo audio đã load
+                if (audio.readyState >= 2) { // HAVE_CURRENT_DATA
+                    audio.play().then(() => {
+                        console.log("✅ Audio đã phát thành công!");
+                        audioStarted = true;
+                    }).catch(e => { 
+                        console.log("❌ Audio Error:", e);
+                        // Thử lại với user interaction
+                        const retryAudio = () => {
+                            audio.play().then(() => {
+                                console.log("✅ Audio đã phát sau retry!");
+                                audioStarted = true;
+                            }).catch(console.error);
+                            document.removeEventListener('click', retryAudio);
+                            document.removeEventListener('touchstart', retryAudio);
+                        };
+                        document.addEventListener('click', retryAudio, { once: true });
+                        document.addEventListener('touchstart', retryAudio, { once: true });
                     });
+                } else {
+                    // Chờ audio load xong
+                    audio.addEventListener('canplaythrough', () => {
+                        audio.play().then(() => {
+                            console.log("✅ Audio đã phát sau khi load!");
+                            audioStarted = true;
+                        }).catch(e => {
+                            console.log("❌ Audio Error sau khi load:", e);
+                        });
+                    }, { once: true });
+                    
+                    // Fallback: thử load lại
+                    audio.load();
                 }
             };
             
+            // Phát audio khi click overlay
             overlay.addEventListener('click', () => {
                 overlay.style.opacity = 0;
                 setTimeout(() => overlay.remove(), 500);
                 initTouchControls(); 
                 startAudio();
+            });
+            
+            // Phát audio ngay khi user tương tác bất kỳ đâu (click, touch, keypress)
+            const tryStartAudioOnInteraction = () => {
+                if (!audioStarted) {
+                    startAudio();
+                }
+                document.removeEventListener('click', tryStartAudioOnInteraction);
+                document.removeEventListener('touchstart', tryStartAudioOnInteraction);
+                document.removeEventListener('keydown', tryStartAudioOnInteraction);
+            };
+            
+            document.addEventListener('click', tryStartAudioOnInteraction, { once: true });
+            document.addEventListener('touchstart', tryStartAudioOnInteraction, { once: true });
+            document.addEventListener('keydown', tryStartAudioOnInteraction, { once: true });
+            
+            // Preload audio ngay khi trang load
+            window.addEventListener('load', () => {
+                if (audio) {
+                    audio.load();
+                    console.log("🎵 Audio đã được load");
+                }
             });
             
             // Tự động bắt đầu audio khi page load (nếu browser cho phép)
@@ -371,22 +427,37 @@
             camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
             camera.position.set(0, 0, SCENE_CONFIG.camZFar);
             
-            renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" }); 
+            // Tối ưu renderer để giảm lag
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: !isMobile, // Tắt antialiasing trên mobile
+                alpha: true, 
+                powerPreference: "high-performance",
+                stencil: false,
+                depth: true
+            }); 
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
+            // Giới hạn pixel ratio để tăng FPS
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.0 : 1.5));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.0;
+            // Tối ưu shadow và render
+            renderer.shadowMap.enabled = false; // Tắt shadow để tăng tốc
+            renderer.physicallyCorrectLights = false;
             
             container.appendChild(renderer.domElement);
 
-            if(ENABLE_POST_PROCESSING) {
+            // Post-processing với độ phân giải thấp hơn để tăng tốc
+            if(ENABLE_POST_PROCESSING && !isMobile) {
                 const renderScene = new RenderPass(scene, camera);
                 composer = new EffectComposer(renderer);
                 composer.addPass(renderScene);
 
-                const bloomRes = new THREE.Vector2(window.innerWidth/2, window.innerHeight/2);
+                // Giảm resolution bloom để tăng FPS
+                const bloomRes = new THREE.Vector2(window.innerWidth/3, window.innerHeight/3);
                 bloomPass = new UnrealBloomPass(bloomRes, 1.5, 0.4, 0.85);
-                bloomPass.threshold = 0.85; bloomPass.strength = 0.8; bloomPass.radius = 0.5;
+                bloomPass.threshold = 0.85; 
+                bloomPass.strength = 0.6; // Giảm strength
+                bloomPass.radius = 0.4; // Giảm radius
                 composer.addPass(bloomPass);
             }
 
@@ -399,7 +470,16 @@
             const redLight = new THREE.PointLight(0xff0000, 0.5, 20); redLight.position.set(-5, 2, 0); scene.add(redLight);
             scene.add(new THREE.AmbientLight(0x404040, 1.0));
 
-            loadTextures(); setupBackgroundParticles(); loadPolaroidTextures(); LAYERS.forEach(createLayerSystem); createPolaroids();
+            // Load các thành phần với delay để tránh lag ban đầu
+            loadTextures(); 
+            
+            // Delay các tính năng không cần thiết ngay
+            setTimeout(() => {
+                setupBackgroundParticles(); 
+                loadPolaroidTextures(); 
+                LAYERS.forEach(createLayerSystem); 
+                createPolaroids();
+            }, 100);
 
             new GLTFLoader().load('./car.glb', (gltf) => {
                 carModel = gltf.scene; carModel.scale.setScalar(SCENE_CONFIG.scaleFar);
@@ -494,7 +574,8 @@
         }
 
         function setupBackgroundParticles() {
-            const count = isMobile ? 200 : 1500;
+            // Giảm background particles để tăng tốc
+            const count = isMobile ? 100 : 800;
             bgParticleGroup = new THREE.Group(); bgParticleGroup.position.z = -12; scene.add(bgParticleGroup);
             const starGeo = new THREE.BufferGeometry(); const starPos = [];
             for(let i=0; i<count; i++) starPos.push((Math.random()-0.5)*180, (Math.random()-0.5)*120, (Math.random()-0.5)*60);
@@ -776,6 +857,17 @@
                 });
                 
                 console.log('✅ Camera đã được kích hoạt thành công!');
+                
+                // Khi camera bắt đầu, thử phát audio (user interaction đã xảy ra)
+                const audio = document.getElementById('bg-music');
+                if (audio && audio.paused) {
+                    audio.volume = 0.7;
+                    audio.play().then(() => {
+                        console.log("✅ Audio phát sau khi camera bắt đầu!");
+                    }).catch(e => {
+                        console.log("⚠️ Audio chưa thể phát:", e.message);
+                    });
+                }
             } catch (error) {
                 console.error('❌ Lỗi khi truy cập camera:', error);
                 alert('Không thể truy cập camera. Vui lòng cấp quyền camera cho trang web.');
@@ -896,7 +988,19 @@
             const time = clock.getElapsedTime();
             
             if (mixer) mixer.update(dt);
-            updateLyrics(); updateParticles(time); updatePolaroids(time); updateBackgroundParticles(time, dt);
+            // Tối ưu: Chỉ update khi cần thiết
+            updateLyrics(); // Luôn update lyrics (nhẹ)
+            
+            // Update particles chỉ khi không phải firework mode
+            if (!isFireworkMode) {
+                updateParticles(time); 
+                updatePolaroids(time);
+            }
+            
+            // Background particles update ít thường xuyên hơn
+            if (Math.floor(time * 2) % 2 === 0) {
+                updateBackgroundParticles(time, dt);
+            }
             
             const currentGesture = STATE.hand.gesture;
             const fingersCount = STATE.hand.fingersCount;
