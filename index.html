@@ -74,6 +74,12 @@
         #webcam-canvas { width: 100%; height: 100%; transform: scaleX(-1); border-radius: 2px; }
         #cam-stats { display: none; }
         
+        #camera-video {
+            position: absolute; bottom: 20px; left: 20px; width: 100px; height: 75px; z-index: 49;
+            border: 1px solid #FFD700; border-radius: 4px; object-fit: cover;
+            transform: scaleX(-1); display: none; opacity: 0.6;
+        }
+        
         #start-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,5,5,0.9);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:opacity .8s}
         .start-btn {
             border: 1px solid #eebb66; padding: 15px 30px; color: #eebb66; font-size: 14px;
@@ -130,7 +136,8 @@
         <canvas id="webcam-canvas"></canvas>
     </div>
 
-    <video id="input_video" style="display:none; transform: scaleX(-1)" playsinline></video>
+    <video id="input_video" style="display:none; transform: scaleX(-1)" playsinline autoplay></video>
+    <video id="camera-video" playsinline autoplay></video>
     <audio id="bg-music" src="./audio.mp3" loop></audio>
 
     <script type="module">
@@ -585,9 +592,47 @@
             }
         }
 
-        function initHandTracking() {
-            const video = document.getElementById('input_video'); const canvas = document.getElementById('webcam-canvas'); const ctx = canvas.getContext('2d'); const stats = document.getElementById('cam-stats');
-            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        async function initHandTracking() {
+            const video = document.getElementById('input_video');
+            const cameraVideo = document.getElementById('camera-video');
+            const canvas = document.getElementById('webcam-canvas');
+            const ctx = canvas.getContext('2d');
+            const stats = document.getElementById('cam-stats');
+            
+            // 1️⃣ GỌI CAMERA BẰNG JAVASCRIPT
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    } 
+                });
+                
+                // Gắn stream vào video elements
+                video.srcObject = stream;
+                cameraVideo.srcObject = stream;
+                
+                // Chờ video ready
+                await new Promise((resolve) => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        cameraVideo.play();
+                        resolve();
+                    };
+                });
+                
+                console.log('✅ Camera đã được kích hoạt thành công!');
+            } catch (error) {
+                console.error('❌ Lỗi khi truy cập camera:', error);
+                alert('Không thể truy cập camera. Vui lòng cấp quyền camera cho trang web.');
+                return;
+            }
+            
+            // 2️⃣ THIẾT LẬP MEDIAPIPE HANDS CHO GESTURE DETECTION
+            const hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
             
             hands.setOptions({
                 maxNumHands: 1, 
@@ -596,25 +641,60 @@
                 minTrackingConfidence: 0.5
             }); 
             
+            // 3️⃣ GẮN CAMERA VÀO LOGIC GESTURE (MEDIAPIPE HANDS)
             hands.onResults(results => {
-                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                if (!video.videoWidth || !video.videoHeight) return;
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.save();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                
+                // Reset gesture state
                 STATE.hand.gesture = 'NONE';
+                
                 if (results.multiHandLandmarks.length > 0) {
-                    STATE.hand.detected = true; const lm = results.multiHandLandmarks[0]; STATE.hand.x = 1 - lm[0].x; STATE.hand.y = lm[0].y; 
-                    const tips = [8, 12, 16, 20]; const pips = [6, 10, 14, 18]; let extended = [];
-                    for(let i=0; i<4; i++) extended.push(Math.hypot(lm[tips[i]].x - lm[0].x, lm[tips[i]].y - lm[0].y) > Math.hypot(lm[pips[i]].x - lm[0].x, lm[pips[i]].y - lm[0].y));
+                    STATE.hand.detected = true;
+                    const lm = results.multiHandLandmarks[0];
+                    STATE.hand.x = 1 - lm[0].x;
+                    STATE.hand.y = lm[0].y;
+                    
+                    // Phát hiện các ngón tay
+                    const tips = [8, 12, 16, 20]; // Đầu ngón tay
+                    const pips = [6, 10, 14, 18]; // Khớp ngón tay
+                    let extended = [];
+                    
+                    for(let i = 0; i < 4; i++) {
+                        extended.push(
+                            Math.hypot(lm[tips[i]].x - lm[0].x, lm[tips[i]].y - lm[0].y) > 
+                            Math.hypot(lm[pips[i]].x - lm[0].x, lm[pips[i]].y - lm[0].y)
+                        );
+                    }
+                    
                     const pinchDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
                     const isFist = extended.every(e => e === false);
 
-                    if (extended[0] && extended[1] && !extended[2] && !extended[3]) STATE.hand.gesture = 'VICTORY';
-                    else if (isFist) STATE.hand.gesture = 'FIST';
-                    else if (pinchDist < 0.05) STATE.hand.gesture = 'PINCH'; 
-                    else STATE.hand.gesture = 'OPEN';
-                } else { if(STATE.hand.detected) { STATE.hand.detected = false; STATE.hand.gesture = 'NONE'; } }
+                    // Xác định cử chỉ
+                    if (extended[0] && extended[1] && !extended[2] && !extended[3]) {
+                        STATE.hand.gesture = 'VICTORY';
+                    } else if (isFist) {
+                        STATE.hand.gesture = 'FIST';
+                    } else if (pinchDist < 0.05) {
+                        STATE.hand.gesture = 'PINCH'; 
+                    } else {
+                        STATE.hand.gesture = 'OPEN';
+                    }
+                } else {
+                    if(STATE.hand.detected) {
+                        STATE.hand.detected = false;
+                        STATE.hand.gesture = 'NONE';
+                    }
+                }
                 ctx.restore();
             });
 
+            // Xử lý frames từ camera
             let frameCounter = 0;
             const cameraUtils = new Camera(video, { 
                 onFrame: async () => { 
