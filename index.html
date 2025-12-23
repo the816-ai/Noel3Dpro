@@ -680,7 +680,8 @@
         function animatePhotoPopup(show, photoIndex = null) {
             const now = clock.getElapsedTime();
             if (show) {
-                if (inspectedPhoto || now - lastDropTime < 0.8) return;
+                // GIẢM COOLDOWN - cho phép hiển thị nhanh hơn
+                if (inspectedPhoto || now - lastDropTime < 0.2) return;
                 
                 // Nếu có photoIndex (1-9), chọn ảnh theo index
                 let targetPhoto = null;
@@ -688,18 +689,52 @@
                     // photoIndex từ 1-9, nhưng array index từ 0-8
                     targetPhoto = polaroidGroup.children[photoIndex - 1];
                 } else {
-                    // Nếu không có index, chọn ảnh gần nhất
+                    // Nếu không có index, chọn ảnh gần nhất hoặc random
                     targetPhoto = getClosestPolaroid();
+                    if (!targetPhoto && polaroidGroup.children.length > 0) {
+                        // Fallback: chọn ảnh ngẫu nhiên
+                        targetPhoto = polaroidGroup.children[Math.floor(Math.random() * polaroidGroup.children.length)];
+                    }
                 }
                 
                 if (!targetPhoto) return;
+                
+                // Đóng ảnh cũ nếu có
+                if (inspectedPhoto && inspectedPhoto !== targetPhoto) {
+                    const oldPhoto = inspectedPhoto;
+                    polaroidGroup.attach(oldPhoto);
+                    const oldT = isGalleryMode ? oldPhoto.userData.targetPos : oldPhoto.userData.startPos;
+                    const oldR = oldPhoto.userData.targetRot;
+                    gsap.to(oldPhoto.position, { x: oldT.x, y: oldT.y, z: oldT.z, duration: 0.2, ease: "power2.in" });
+                    gsap.to(oldPhoto.scale, { x: 1, y: 1, z: 1, duration: 0.2 });
+                    gsap.to(oldPhoto.material, { opacity: isGalleryMode ? 1 : 0, duration: 0.2 });
+                }
+                
                 inspectedPhoto = targetPhoto;
                 scene.attach(inspectedPhoto); 
                 inspectedPhoto.visible = true; 
                 inspectedPhoto.material.opacity = 1;
-                gsap.to(inspectedPhoto.position, { x: 0, y: 0, z: camera.position.z - 2.5, duration: 0.8, ease: "back.out(1.2)" });
-                gsap.to(inspectedPhoto.rotation, { x: 0, y: 0, z: 0, duration: 0.8 }); 
-                gsap.to(inspectedPhoto.scale, { x: 1.4, y: 1.4, z: 1.4, duration: 0.8 }); 
+                
+                // ANIMATION NHANH HƠN - từ 0.8s xuống 0.25s
+                gsap.to(inspectedPhoto.position, { 
+                    x: 0, 
+                    y: 0, 
+                    z: camera.position.z - 2.5, 
+                    duration: 0.25, 
+                    ease: "power2.out" 
+                });
+                gsap.to(inspectedPhoto.rotation, { 
+                    x: 0, 
+                    y: 0, 
+                    z: 0, 
+                    duration: 0.25 
+                }); 
+                gsap.to(inspectedPhoto.scale, { 
+                    x: 1.4, 
+                    y: 1.4, 
+                    z: 1.4, 
+                    duration: 0.25 
+                }); 
             } else {
                 if (!inspectedPhoto) return; 
                 const p = inspectedPhoto; 
@@ -708,10 +743,11 @@
                 polaroidGroup.attach(p); 
                 const t = isGalleryMode ? p.userData.targetPos : p.userData.startPos; 
                 const r = p.userData.targetRot;
-                gsap.to(p.position, { x: t.x, y: t.y, z: t.z, duration: 0.8, ease: "back.out(1.0)" }); 
-                gsap.to(p.scale, { x: 1, y: 1, z: 1, duration: 0.7 });
-                if (isGalleryMode) gsap.to(p.rotation, { x: 0, y: r.y, z: r.z, duration: 0.7, ease: "power2.out" }); 
-                else gsap.to(p.material, { opacity: 0, duration: 0.5 });
+                // Đóng nhanh hơn - từ 0.7-0.8s xuống 0.2s
+                gsap.to(p.position, { x: t.x, y: t.y, z: t.z, duration: 0.2, ease: "power2.in" }); 
+                gsap.to(p.scale, { x: 1, y: 1, z: 1, duration: 0.2 });
+                if (isGalleryMode) gsap.to(p.rotation, { x: 0, y: r.y, z: r.z, duration: 0.2, ease: "power2.out" }); 
+                else gsap.to(p.material, { opacity: 0, duration: 0.2 });
             }
         }
 
@@ -1003,8 +1039,27 @@
             const currentGesture = STATE.hand.gesture;
             const fingersCount = STATE.hand.fingersCount;
 
-            if (currentGesture === 'VICTORY' && lastGesture !== 'VICTORY') toggleMode();
-            if (currentGesture === 'PINCH') { isZoomedIn = true; if (isGalleryMode) animatePhotoPopup(true); }
+            if (currentGesture === 'VICTORY' && lastGesture !== 'VICTORY') {
+                toggleMode();
+                // Hiển thị ảnh ngay khi VICTORY trong gallery mode
+                if (isGalleryMode && !inspectedPhoto) {
+                    animatePhotoPopup(true);
+                }
+            }
+            
+            // PINCH - hiển thị ảnh gần nhất
+            if (currentGesture === 'PINCH') { 
+                isZoomedIn = true; 
+                if (isGalleryMode) animatePhotoPopup(true); 
+            }
+            
+            // BẤT KỲ CỬ CHỈ NÀO TRONG GALLERY MODE → HIỂN THỊ ẢNH NGAY
+            if (isGalleryMode && !isFireworkMode && !inspectedPhoto) {
+                // Nếu có cử chỉ bất kỳ (không phải NONE) → hiển thị ảnh
+                if (currentGesture !== 'NONE' && currentGesture !== 'OPEN') {
+                    animatePhotoPopup(true);
+                }
+            }
             
             // 🖐️ XÒE TAY RA (OPEN) → HIỂN THỊ CHỮ "MERRY CHRISTMAS Lan YÊU"
             if (currentGesture === 'OPEN' && fingersCount >= 4) { 
@@ -1035,19 +1090,17 @@
                 }
             }
             
-            // 👆 GIƠ NGÓN TAY (1-5) → PHÓNG TO ẢNH TƯƠNG ỨNG
+            // 👆 GIƠ NGÓN TAY (1-5) → PHÓNG TO ẢNH TƯƠNG ỨNG - NHANH HƠN
             if (currentGesture.startsWith('FINGER_')) {
                 const fingerNum = parseInt(currentGesture.split('_')[1]);
                 if (fingerNum >= 1 && fingerNum <= TOTAL_PHOTOS && isGalleryMode && !isFireworkMode) {
                     isZoomedIn = true;
-                    // Phóng to ảnh số tương ứng (1 ngón = ảnh 1, 2 ngón = ảnh 2, ...)
-                    if (!inspectedPhoto || inspectedPhoto !== polaroidGroup.children[fingerNum - 1]) {
-                        animatePhotoPopup(true, fingerNum);
-                    }
+                    // Phóng to ảnh số tương ứng NGAY LẬP TỨC
+                    animatePhotoPopup(true, fingerNum);
                 }
             } else if (!currentGesture.startsWith('FINGER_') && !currentGesture.startsWith('OPEN') && isZoomedIn && inspectedPhoto) {
-                // Đóng phóng to khi không còn giơ ngón tay (trừ khi đang xòe tay)
-                if (currentGesture !== 'PINCH') {
+                // Chỉ đóng khi có cử chỉ rõ ràng để đóng
+                if (currentGesture === 'NONE' || currentGesture === 'FIST') {
                     isZoomedIn = false;
                     animatePhotoPopup(false);
                 }
