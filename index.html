@@ -118,7 +118,7 @@
     <div id="canvas-container"></div>
     <canvas id="firework-canvas"></canvas>
 
-    <div id="secret-message">MERRY CHRISTMAS NA YÊU</div>
+    <div id="secret-message">MERRY CHRISTMAS Lan YÊU</div>
 
     <div id="ui-layer">
         <h1 id="main-title">Merry Xmas</h1>
@@ -179,13 +179,20 @@
 
         let scene, camera, renderer, composer, bloomPass, carModel, mixer, particleSystems = {}, textureCache = {}, polaroidTextures = [], polaroidGroup, clock = new THREE.Clock(), bgParticleGroup;
         let isGalleryMode = false, lastGesture = 'NONE', isZoomedIn = false, lastSwitchTime = 0, lastDropTime = 0, jarOffsetY = 0, inspectedPhoto = null;
+        let wasFistBefore = false, lastExplosionTime = 0;
         const SWITCH_COOLDOWN = 1.0;
+        const EXPLOSION_COOLDOWN = 2.0;
         
         const STATE = { 
-            hand: { detected: false, x: 0.5, y: 0.5, gesture: 'NONE' }, 
+            hand: { detected: false, x: 0.5, y: 0.5, gesture: 'NONE', smoothedX: 0.5, smoothedY: 0.5 }, 
             targetRotation: { x: 0, y: 0 },
             currentRotation: { x: 0, y: 0 }
         };
+        
+        // Smoothing parameters cho điều khiển tay
+        const HAND_SMOOTHING = 0.15; // Hệ số làm mượt vị trí tay (0.1-0.3)
+        const ROTATION_SMOOTHING = 0.25; // Hệ số làm mượt rotation (0.15-0.35)
+        const HAND_SENSITIVITY = 8.0; // Độ nhạy điều khiển trái/phải (tăng để phản ứng nhanh hơn)
         
         let isFireworkMode = false;
         
@@ -592,6 +599,89 @@
             }
         }
 
+        function animatePhotoExplosion() {
+            if (!isGalleryMode || !polaroidGroup) return;
+            const now = clock.getElapsedTime();
+            if (now - lastExplosionTime < EXPLOSION_COOLDOWN) return;
+            lastExplosionTime = now;
+
+            // Lấy vị trí trung tâm camera
+            const centerX = camera.position.x;
+            const centerY = camera.position.y;
+            const centerZ = camera.position.z - 3;
+
+            // Bùng nổ tất cả ảnh ra xung quanh
+            polaroidGroup.children.forEach((polaroid, index) => {
+                if (polaroid === inspectedPhoto) return;
+                
+                // Tạo hướng bùng nổ ngẫu nhiên nhưng đều
+                const angle = (index / polaroidGroup.children.length) * Math.PI * 2;
+                const radius = 8 + Math.random() * 4; // Khoảng cách bùng nổ
+                const height = (Math.random() - 0.5) * 6; // Độ cao ngẫu nhiên
+                
+                const explodeX = centerX + Math.cos(angle) * radius;
+                const explodeY = centerY + Math.sin(angle * 0.5) * 3 + height;
+                const explodeZ = centerZ + Math.sin(angle) * radius;
+                
+                // Rotation ngẫu nhiên khi bùng nổ
+                const randomRotX = (Math.random() - 0.5) * Math.PI * 2;
+                const randomRotY = (Math.random() - 0.5) * Math.PI * 2;
+                const randomRotZ = (Math.random() - 0.5) * Math.PI * 2;
+                
+                // Scale tăng lên rồi giảm xuống
+                gsap.to(polaroid.scale, { 
+                    x: 1.5, 
+                    y: 1.5, 
+                    z: 1.5, 
+                    duration: 0.3, 
+                    ease: "power2.out",
+                    onComplete: () => {
+                        gsap.to(polaroid.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: "power2.in" });
+                    }
+                });
+                
+                // Di chuyển ra xa
+                gsap.to(polaroid.position, {
+                    x: explodeX,
+                    y: explodeY,
+                    z: explodeZ,
+                    duration: 1.2,
+                    ease: "power2.out",
+                    delay: index * 0.02
+                });
+                
+                // Quay ngẫu nhiên
+                gsap.to(polaroid.rotation, {
+                    x: randomRotX,
+                    y: randomRotY,
+                    z: randomRotZ,
+                    duration: 1.2,
+                    ease: "power2.out",
+                    delay: index * 0.02
+                });
+                
+                // Sau đó quay về vị trí ban đầu
+                setTimeout(() => {
+                    const t = polaroid.userData.targetPos;
+                    const r = polaroid.userData.targetRot;
+                    gsap.to(polaroid.position, {
+                        x: t.x,
+                        y: t.y,
+                        z: t.z,
+                        duration: 1.5,
+                        ease: "elastic.out(1, 0.5)"
+                    });
+                    gsap.to(polaroid.rotation, {
+                        x: 0,
+                        y: r.y,
+                        z: r.z,
+                        duration: 1.5,
+                        ease: "elastic.out(1, 0.5)"
+                    });
+                }, 1500);
+            });
+        }
+
         async function initHandTracking() {
             const video = document.getElementById('input_video');
             const cameraVideo = document.getElementById('camera-video');
@@ -657,8 +747,17 @@
                 if (results.multiHandLandmarks.length > 0) {
                     STATE.hand.detected = true;
                     const lm = results.multiHandLandmarks[0];
-                    STATE.hand.x = 1 - lm[0].x;
-                    STATE.hand.y = lm[0].y;
+                    
+                    // Cập nhật vị trí tay với smoothing để tránh giật lag
+                    const rawX = 1 - lm[0].x;
+                    const rawY = lm[0].y;
+                    
+                    STATE.hand.x = rawX;
+                    STATE.hand.y = rawY;
+                    
+                    // Smoothing vị trí tay để chuyển động mượt mà hơn
+                    STATE.hand.smoothedX += (rawX - STATE.hand.smoothedX) * HAND_SMOOTHING;
+                    STATE.hand.smoothedY += (rawY - STATE.hand.smoothedY) * HAND_SMOOTHING;
                     
                     // Phát hiện các ngón tay
                     const tips = [8, 12, 16, 20]; // Đầu ngón tay
@@ -724,35 +823,85 @@
             if (currentGesture === 'OPEN') { 
                 isZoomedIn = false; 
                 if (isGalleryMode) animatePhotoPopup(false); 
-                if (isFireworkMode) exitFireworkMode(); 
+                if (isFireworkMode) exitFireworkMode();
+                
+                // 🎆 BÙNG NỔ ẢNH KHI MỞ TAY RA TỪ NẮM TAY
+                if (wasFistBefore && isGalleryMode && !isFireworkMode) {
+                    animatePhotoExplosion();
+                    wasFistBefore = false; // Reset sau khi bùng nổ
+                }
             }
-            if (currentGesture === 'FIST' && isGalleryMode && !isFireworkMode) { triggerFireworkMode(); }
+            // Đánh dấu khi nắm tay (FIST) - chuẩn bị cho bùng nổ
+            if (currentGesture === 'FIST' && isGalleryMode && !isFireworkMode) { 
+                wasFistBefore = true;
+            } else if (currentGesture !== 'FIST') {
+                // Reset trạng thái khi không còn nắm tay
+                if (currentGesture !== 'OPEN' || !wasFistBefore) {
+                    wasFistBefore = false;
+                }
+            }
+            
+            // Long press FIST để trigger firework mode (giữ nguyên từ touch controls)
 
             lastGesture = currentGesture;
 
             if (isTouching) {
                 
             } else if (STATE.hand.detected) {
-                const targetY = (STATE.hand.x - 0.5) * (Math.PI * 6.0); 
-                const targetX = (STATE.hand.y - 0.5) * (Math.PI * 1.0); 
+                // Sử dụng smoothed position để điều khiển mượt mà hơn
+                // Tính toán rotation target dựa trên vị trí tay (trái/phải, lên/xuống)
+                const handXDelta = STATE.hand.smoothedX - 0.5; // -0.5 đến 0.5 (trái đến phải)
+                const handYDelta = STATE.hand.smoothedY - 0.5; // -0.5 đến 0.5 (trên đến dưới)
                 
-                STATE.currentRotation.x += (targetX - STATE.currentRotation.x) * 0.1;
-                STATE.currentRotation.y += (targetY - STATE.currentRotation.y) * 0.1;
+                // Điều khiển sang trái/phải với độ nhạy cao hơn và mượt mà
+                const targetY = handXDelta * (Math.PI * HAND_SENSITIVITY); 
+                const targetX = handYDelta * (Math.PI * 1.5); 
+                
+                // Interpolation mượt mà hơn cho rotation
+                STATE.currentRotation.x += (targetX - STATE.currentRotation.x) * ROTATION_SMOOTHING;
+                STATE.currentRotation.y += (targetY - STATE.currentRotation.y) * ROTATION_SMOOTHING;
 
+                // Áp dụng rotation vào car model và polaroid group
                 if (inspectedPhoto === null) {
                      if (!isGalleryMode) { 
-                        if(carModel) { carModel.rotation.y = STATE.currentRotation.y; carModel.rotation.x = STATE.currentRotation.x; }
+                        // JAR CONTROL mode - điều khiển jar/car mượt mà
+                        if(carModel) { 
+                            carModel.rotation.y = STATE.currentRotation.y; 
+                            carModel.rotation.x = STATE.currentRotation.x; 
+                        }
                      } 
                      else if(carModel) { 
+                        // PHOTO GALLERY mode - điều khiển cả jar và gallery
                         carModel.rotation.y = STATE.currentRotation.y * 0.5; 
-                        carModel.rotation.x = STATE.currentRotation.x * 0.5; 
+                        carModel.rotation.x = STATE.currentRotation.x * 0.5;
+                        // Điều khiển polaroid group cùng với jar để mượt mà
+                        if (polaroidGroup && !isFireworkMode) {
+                            polaroidGroup.rotation.y = STATE.currentRotation.y;
+                            polaroidGroup.rotation.x = STATE.currentRotation.x * 0.3;
+                        }
                      }
                 }
-            } else if(carModel && !isGalleryMode && inspectedPhoto === null) { 
-                carModel.rotation.y += 0.4 * dt; 
-                carModel.rotation.x *= 0.95; 
-                STATE.currentRotation.y = carModel.rotation.y;
-                STATE.currentRotation.x = carModel.rotation.x;
+            } else {
+                // Khi không có tay - làm mượt rotation về trạng thái mặc định
+                if (!isGalleryMode && inspectedPhoto === null) {
+                    // Auto rotate khi không có tay trong JAR CONTROL mode
+                    STATE.currentRotation.y += 0.4 * dt; 
+                    STATE.currentRotation.x *= 0.95; // Giảm dần rotation X
+                    
+                    if(carModel) {
+                        carModel.rotation.y = STATE.currentRotation.y;
+                        carModel.rotation.x = STATE.currentRotation.x;
+                    }
+                } else if (isGalleryMode) {
+                    // Trong gallery mode, quay về trạng thái ban đầu mượt mà
+                    STATE.currentRotation.y += (0 - STATE.currentRotation.y) * 0.1;
+                    STATE.currentRotation.x += (0 - STATE.currentRotation.x) * 0.1;
+                    
+                    if (polaroidGroup && !isFireworkMode) {
+                        polaroidGroup.rotation.y = STATE.currentRotation.y;
+                        polaroidGroup.rotation.x = STATE.currentRotation.x * 0.3;
+                    }
+                }
             }
 
             if (!isGalleryMode) {
