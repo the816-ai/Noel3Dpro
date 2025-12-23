@@ -343,84 +343,77 @@
             const overlay = document.getElementById('start-overlay');
             const audio = document.getElementById('bg-music');
             
-            // Khởi tạo audio - CẢI THIỆN ĐỂ CHẮC CHẮN PHÁT ĐƯỢC
-            let audioStarted = false;
-            
+            // Đơn giản hóa logic phát audio
             const startAudio = () => {
-                if (!audio || audioStarted) return;
+                if (!audio) {
+                    console.error("❌ Audio element không tìm thấy!");
+                    return;
+                }
                 
-                audio.volume = 0.7; // Đặt volume
-                audio.loop = true; // Đảm bảo loop
+                // Cấu hình audio
+                audio.volume = 0.7;
+                audio.loop = true;
                 
-                // Đảm bảo audio đã load
-                if (audio.readyState >= 2) { // HAVE_CURRENT_DATA
+                // Thử phát ngay
+                const playAudio = () => {
                     audio.play().then(() => {
-                        console.log("✅ Audio đã phát thành công!");
-                        audioStarted = true;
-                    }).catch(e => { 
-                        console.log("❌ Audio Error:", e);
-                        // Thử lại với user interaction
-                        const retryAudio = () => {
-                            audio.play().then(() => {
-                                console.log("✅ Audio đã phát sau retry!");
-                                audioStarted = true;
-                            }).catch(console.error);
-                            document.removeEventListener('click', retryAudio);
-                            document.removeEventListener('touchstart', retryAudio);
-                        };
-                        document.addEventListener('click', retryAudio, { once: true });
-                        document.addEventListener('touchstart', retryAudio, { once: true });
+                        console.log("✅ Nhạc đã phát thành công!");
+                    }).catch(e => {
+                        console.log("⚠️ Lỗi phát nhạc:", e.message);
+                        // Thử lại sau 0.5s
+                        setTimeout(() => {
+                            audio.play().catch(err => console.log("❌ Vẫn không phát được:", err.message));
+                        }, 500);
                     });
+                };
+                
+                // Nếu audio đã sẵn sàng, phát ngay
+                if (audio.readyState >= 2) {
+                    playAudio();
                 } else {
                     // Chờ audio load xong
-                    audio.addEventListener('canplaythrough', () => {
-                        audio.play().then(() => {
-                            console.log("✅ Audio đã phát sau khi load!");
-                            audioStarted = true;
-                        }).catch(e => {
-                            console.log("❌ Audio Error sau khi load:", e);
-                        });
-                    }, { once: true });
-                    
-                    // Fallback: thử load lại
-                    audio.load();
+                    audio.addEventListener('canplay', playAudio, { once: true });
+                    audio.addEventListener('loadeddata', playAudio, { once: true });
+                    audio.load(); // Force load
                 }
             };
             
-            // Phát audio khi click overlay
+            // Phát audio khi click overlay - TỰ ĐỘNG PHÁT KHI CHẠM BẮT ĐẦU
             overlay.addEventListener('click', () => {
+                // Phát nhạc NGAY LẬP TỨC khi click
+                if (audio) {
+                    audio.volume = 0.7;
+                    audio.loop = true;
+                    audio.play().then(() => {
+                        console.log("✅ Nhạc đã phát khi click BẮT ĐẦU!");
+                    }).catch(e => {
+                        console.log("⚠️ Lỗi phát nhạc:", e.message);
+                        // Thử lại
+                        setTimeout(() => {
+                            audio.play().catch(() => {});
+                        }, 200);
+                    });
+                }
+                
                 overlay.style.opacity = 0;
                 setTimeout(() => overlay.remove(), 500);
-                initTouchControls(); 
-                startAudio();
+                initTouchControls();
             });
             
-            // Phát audio ngay khi user tương tác bất kỳ đâu (click, touch, keypress)
-            const tryStartAudioOnInteraction = () => {
-                if (!audioStarted) {
-                    startAudio();
-                }
-                document.removeEventListener('click', tryStartAudioOnInteraction);
-                document.removeEventListener('touchstart', tryStartAudioOnInteraction);
-                document.removeEventListener('keydown', tryStartAudioOnInteraction);
+            // Phát audio khi user click/touch bất kỳ đâu trên trang
+            const globalStartAudio = () => {
+                startAudio();
             };
             
-            document.addEventListener('click', tryStartAudioOnInteraction, { once: true });
-            document.addEventListener('touchstart', tryStartAudioOnInteraction, { once: true });
-            document.addEventListener('keydown', tryStartAudioOnInteraction, { once: true });
+            document.addEventListener('click', globalStartAudio, { once: true });
+            document.addEventListener('touchstart', globalStartAudio, { once: true });
+            document.addEventListener('keydown', globalStartAudio, { once: true });
             
-            // Preload audio ngay khi trang load
-            window.addEventListener('load', () => {
-                if (audio) {
-                    audio.load();
-                    console.log("🎵 Audio đã được load");
-                }
-            });
-            
-            // Tự động bắt đầu audio khi page load (nếu browser cho phép)
-            window.addEventListener('load', () => {
-                audio.load(); // Preload audio
-            });
+            // Preload audio khi trang load
+            if (audio) {
+                audio.load();
+                console.log("🎵 Đang tải nhạc...");
+            }
 
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
@@ -858,14 +851,19 @@
                 
                 console.log('✅ Camera đã được kích hoạt thành công!');
                 
-                // Khi camera bắt đầu, thử phát audio (user interaction đã xảy ra)
+                // Khi camera bắt đầu, phát audio (user interaction đã xảy ra)
                 const audio = document.getElementById('bg-music');
-                if (audio && audio.paused) {
+                if (audio) {
                     audio.volume = 0.7;
+                    audio.loop = true;
                     audio.play().then(() => {
-                        console.log("✅ Audio phát sau khi camera bắt đầu!");
+                        console.log("✅ Nhạc phát sau khi camera bắt đầu!");
                     }).catch(e => {
-                        console.log("⚠️ Audio chưa thể phát:", e.message);
+                        console.log("⚠️ Chưa thể phát nhạc:", e.message);
+                        // Thử lại sau 0.3s
+                        setTimeout(() => {
+                            audio.play().catch(() => console.log("❌ Vẫn không phát được"));
+                        }, 300);
                     });
                 }
             } catch (error) {
