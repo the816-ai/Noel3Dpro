@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merry Xmas LAN Yêu (Smart Optimized)</title>
+    <title>Merry Xmas Na Yêu (Smart Optimized)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Pinyon+Script&display=swap" rel="stylesheet">
@@ -74,12 +74,6 @@
         #webcam-canvas { width: 100%; height: 100%; transform: scaleX(-1); border-radius: 2px; }
         #cam-stats { display: none; }
         
-        #camera-video {
-            position: absolute; bottom: 20px; left: 20px; width: 100px; height: 75px; z-index: 49;
-            border: 1px solid #FFD700; border-radius: 4px; object-fit: cover;
-            transform: scaleX(-1); display: none; opacity: 0.6;
-        }
-        
         #start-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,5,5,0.9);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:opacity .8s}
         .start-btn {
             border: 1px solid #eebb66; padding: 15px 30px; color: #eebb66; font-size: 14px;
@@ -118,7 +112,7 @@
     <div id="canvas-container"></div>
     <canvas id="firework-canvas"></canvas>
 
-    <div id="secret-message">MERRY CHRISTMAS LAN YÊU</div>
+    <div id="secret-message">MERRY CHRISTMAS NA YÊU</div>
 
     <div id="ui-layer">
         <h1 id="main-title">Merry Xmas</h1>
@@ -136,9 +130,8 @@
         <canvas id="webcam-canvas"></canvas>
     </div>
 
-    <video id="input_video" style="display:none; transform: scaleX(-1)" playsinline autoplay></video>
-    <video id="camera-video" playsinline autoplay></video>
-    <audio id="bg-music" src="./audio.MP3" loop preload="auto"></audio>
+    <video id="input_video" style="display:none; transform: scaleX(-1)" playsinline></video>
+    <audio id="bg-music" src="./audio.mp3" loop></audio>
 
     <script type="module">
         import * as THREE from 'three';
@@ -150,14 +143,12 @@
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 800;
         
-        // Tối ưu hiệu suất: Giảm post-processing ban đầu, tăng dần sau khi load xong
-        const ENABLE_POST_PROCESSING = !isMobile; // Tắt trên mobile để tăng tốc
+        const ENABLE_POST_PROCESSING = true; 
         
-        const TOTAL_PHOTOS = 9; 
-        // Giảm particles ban đầu để tải nhanh hơn, tăng dần sau
-        const PARTICLE_RATIO = isMobile ? 0.2 : 0.6; // Giảm từ 1.0 xuống 0.6
+        const TOTAL_PHOTOS = isMobile ? 8 : 20; 
+        const PARTICLE_RATIO = isMobile ? 0.3 : 1.0; 
         
-        const AI_SKIP_FRAMES = isMobile ? 10 : 3; // Tăng skip frames để giảm CPU 
+        const AI_SKIP_FRAMES = isMobile ? 8 : 2; 
 
         const LYRICS_DATA = [{time:0.00,text:"Last Christmas, I gave you my heart"},{time:4.00,text:"But the very next day, you gave it away"},{time:7.13,text:"Last Christmas, I gave you my heart"},{time:11.08,text:"But the very next day, you gave it away"},{time:15.08,text:"This year, to save me from tears"},{time:18.99,text:"I'll give it to someone special"},{time:23.12,text:"Last Christmas, I gave you my heart"},{time:27.02,text:"But the very next day, you gave it away"},{time:31.06,text:"This year, to save me from tears"},{time:34.97,text:"I'll give it to someone special"}];
         
@@ -173,29 +164,21 @@
             rotateSpeed: 0.08 
         };
 
-        // Giảm particles để tải nhanh hơn
         const LAYERS = [
-            { id: 'inner_snow', shape: 'Snowflake', count: Math.floor(800 * PARTICLE_RATIO), opacity: 0.9, color: '#ffffff', speed: 0.0005, size: 0.06, radius: 0.48, startY: 1.1, endY: -0.3, drift: 0.01, twinkle: false, rotateWithJar: true },
-            { id: 'snow_main', shape: 'Snowflake', count: Math.floor(300 * PARTICLE_RATIO), opacity: 0.9, color: '#e0ffff', speed: 0.0010, size: 0.18, radius: 5.0, startY: 7.0, endY: -6.0, drift: 0.05, twinkle: true, rotateWithJar: true },
-            { id: 'gold_dust', shape: 'Circle', count: Math.floor(300 * PARTICLE_RATIO), opacity: 0.8, color: '#ffcc00', speed: 0.0006, size: 0.03, radius: 4.5, startY: 6.0, endY: -4.0, drift: 0.08, twinkle: true, rotateWithJar: true }
+            { id: 'inner_snow', shape: 'Snowflake', count: Math.floor(1200 * PARTICLE_RATIO), opacity: 0.9, color: '#ffffff', speed: 0.0005, size: 0.06, radius: 0.48, startY: 1.1, endY: -0.3, drift: 0.01, twinkle: false, rotateWithJar: true },
+            { id: 'snow_main', shape: 'Snowflake', count: Math.floor(500 * PARTICLE_RATIO), opacity: 0.9, color: '#e0ffff', speed: 0.0010, size: 0.18, radius: 5.0, startY: 7.0, endY: -6.0, drift: 0.05, twinkle: true, rotateWithJar: true },
+            { id: 'gold_dust', shape: 'Circle', count: Math.floor(500 * PARTICLE_RATIO), opacity: 0.8, color: '#ffcc00', speed: 0.0006, size: 0.03, radius: 4.5, startY: 6.0, endY: -4.0, drift: 0.08, twinkle: true, rotateWithJar: true }
         ];
 
         let scene, camera, renderer, composer, bloomPass, carModel, mixer, particleSystems = {}, textureCache = {}, polaroidTextures = [], polaroidGroup, clock = new THREE.Clock(), bgParticleGroup;
         let isGalleryMode = false, lastGesture = 'NONE', isZoomedIn = false, lastSwitchTime = 0, lastDropTime = 0, jarOffsetY = 0, inspectedPhoto = null;
-        let wasFistBefore = false, lastExplosionTime = 0;
         const SWITCH_COOLDOWN = 1.0;
-        const EXPLOSION_COOLDOWN = 2.0;
         
         const STATE = { 
-            hand: { detected: false, x: 0.5, y: 0.5, gesture: 'NONE', smoothedX: 0.5, smoothedY: 0.5, fingersCount: 0 }, 
+            hand: { detected: false, x: 0.5, y: 0.5, gesture: 'NONE' }, 
             targetRotation: { x: 0, y: 0 },
             currentRotation: { x: 0, y: 0 }
         };
-        
-        // Smoothing parameters cho điều khiển tay
-        const HAND_SMOOTHING = 0.15; // Hệ số làm mượt vị trí tay (0.1-0.3)
-        const ROTATION_SMOOTHING = 0.25; // Hệ số làm mượt rotation (0.15-0.35)
-        const HAND_SENSITIVITY = 8.0; // Độ nhạy điều khiển trái/phải (tăng để phản ứng nhanh hơn)
         
         let isFireworkMode = false;
         
@@ -343,114 +326,34 @@
             const overlay = document.getElementById('start-overlay');
             const audio = document.getElementById('bg-music');
             
-            // Đơn giản hóa logic phát audio
-            const startAudio = () => {
-                if (!audio) {
-                    console.error("❌ Audio element không tìm thấy!");
-                    return;
-                }
-                
-                // Cấu hình audio
-                audio.volume = 0.7;
-                audio.loop = true;
-                
-                // Thử phát ngay
-                const playAudio = () => {
-                    audio.play().then(() => {
-                        console.log("✅ Nhạc đã phát thành công!");
-                    }).catch(e => {
-                        console.log("⚠️ Lỗi phát nhạc:", e.message);
-                        // Thử lại sau 0.5s
-                        setTimeout(() => {
-                            audio.play().catch(err => console.log("❌ Vẫn không phát được:", err.message));
-                        }, 500);
-                    });
-                };
-                
-                // Nếu audio đã sẵn sàng, phát ngay
-                if (audio.readyState >= 2) {
-                    playAudio();
-                } else {
-                    // Chờ audio load xong
-                    audio.addEventListener('canplay', playAudio, { once: true });
-                    audio.addEventListener('loadeddata', playAudio, { once: true });
-                    audio.load(); // Force load
-                }
-            };
-            
-            // Phát audio khi click overlay - TỰ ĐỘNG PHÁT KHI CHẠM BẮT ĐẦU
             overlay.addEventListener('click', () => {
-                // Phát nhạc NGAY LẬP TỨC khi click
-                if (audio) {
-                    audio.volume = 0.7;
-                    audio.loop = true;
-                    audio.play().then(() => {
-                        console.log("✅ Nhạc đã phát khi click BẮT ĐẦU!");
-                    }).catch(e => {
-                        console.log("⚠️ Lỗi phát nhạc:", e.message);
-                        // Thử lại
-                        setTimeout(() => {
-                            audio.play().catch(() => {});
-                        }, 200);
-                    });
-                }
-                
                 overlay.style.opacity = 0;
                 setTimeout(() => overlay.remove(), 500);
-                initTouchControls();
+                initTouchControls(); 
+                audio.play().catch(e => { console.log("Audio Error:", e); });
             });
-            
-            // Phát audio khi user click/touch bất kỳ đâu trên trang
-            const globalStartAudio = () => {
-                startAudio();
-            };
-            
-            document.addEventListener('click', globalStartAudio, { once: true });
-            document.addEventListener('touchstart', globalStartAudio, { once: true });
-            document.addEventListener('keydown', globalStartAudio, { once: true });
-            
-            // Preload audio khi trang load
-            if (audio) {
-                audio.load();
-                console.log("🎵 Đang tải nhạc...");
-            }
 
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
             camera.position.set(0, 0, SCENE_CONFIG.camZFar);
             
-            // Tối ưu renderer để giảm lag
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: !isMobile, // Tắt antialiasing trên mobile
-                alpha: true, 
-                powerPreference: "high-performance",
-                stencil: false,
-                depth: true
-            }); 
+            renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" }); 
             renderer.setSize(window.innerWidth, window.innerHeight);
-            // Giới hạn pixel ratio để tăng FPS
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.0 : 1.5));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.0;
-            // Tối ưu shadow và render
-            renderer.shadowMap.enabled = false; // Tắt shadow để tăng tốc
-            renderer.physicallyCorrectLights = false;
             
             container.appendChild(renderer.domElement);
 
-            // Post-processing với độ phân giải thấp hơn để tăng tốc
-            if(ENABLE_POST_PROCESSING && !isMobile) {
+            if(ENABLE_POST_PROCESSING) {
                 const renderScene = new RenderPass(scene, camera);
                 composer = new EffectComposer(renderer);
                 composer.addPass(renderScene);
 
-                // Giảm resolution bloom để tăng FPS
-                const bloomRes = new THREE.Vector2(window.innerWidth/3, window.innerHeight/3);
+                const bloomRes = new THREE.Vector2(window.innerWidth/2, window.innerHeight/2);
                 bloomPass = new UnrealBloomPass(bloomRes, 1.5, 0.4, 0.85);
-                bloomPass.threshold = 0.85; 
-                bloomPass.strength = 0.6; // Giảm strength
-                bloomPass.radius = 0.4; // Giảm radius
+                bloomPass.threshold = 0.85; bloomPass.strength = 0.8; bloomPass.radius = 0.5;
                 composer.addPass(bloomPass);
             }
 
@@ -463,16 +366,7 @@
             const redLight = new THREE.PointLight(0xff0000, 0.5, 20); redLight.position.set(-5, 2, 0); scene.add(redLight);
             scene.add(new THREE.AmbientLight(0x404040, 1.0));
 
-            // Load các thành phần với delay để tránh lag ban đầu
-            loadTextures(); 
-            
-            // Delay các tính năng không cần thiết ngay
-            setTimeout(() => {
-                setupBackgroundParticles(); 
-                loadPolaroidTextures(); 
-                LAYERS.forEach(createLayerSystem); 
-                createPolaroids();
-            }, 100);
+            loadTextures(); setupBackgroundParticles(); loadPolaroidTextures(); LAYERS.forEach(createLayerSystem); createPolaroids();
 
             new GLTFLoader().load('./car.glb', (gltf) => {
                 carModel = gltf.scene; carModel.scale.setScalar(SCENE_CONFIG.scaleFar);
@@ -567,8 +461,7 @@
         }
 
         function setupBackgroundParticles() {
-            // Giảm background particles để tăng tốc
-            const count = isMobile ? 100 : 800;
+            const count = isMobile ? 200 : 1500;
             bgParticleGroup = new THREE.Group(); bgParticleGroup.position.z = -12; scene.add(bgParticleGroup);
             const starGeo = new THREE.BufferGeometry(); const starPos = [];
             for(let i=0; i<count; i++) starPos.push((Math.random()-0.5)*180, (Math.random()-0.5)*120, (Math.random()-0.5)*60);
@@ -677,241 +570,24 @@
             }); return closest;
         }
 
-        function animatePhotoPopup(show, photoIndex = null) {
+        function animatePhotoPopup(show) {
             const now = clock.getElapsedTime();
             if (show) {
-                // GIẢM COOLDOWN - cho phép hiển thị nhanh hơn
-                if (inspectedPhoto || now - lastDropTime < 0.2) return;
-                
-                // Nếu có photoIndex (1-9), chọn ảnh theo index
-                let targetPhoto = null;
-                if (photoIndex !== null && photoIndex >= 1 && photoIndex <= TOTAL_PHOTOS) {
-                    // photoIndex từ 1-9, nhưng array index từ 0-8
-                    targetPhoto = polaroidGroup.children[photoIndex - 1];
-                } else {
-                    // Nếu không có index, chọn ảnh gần nhất hoặc random
-                    targetPhoto = getClosestPolaroid();
-                    if (!targetPhoto && polaroidGroup.children.length > 0) {
-                        // Fallback: chọn ảnh ngẫu nhiên
-                        targetPhoto = polaroidGroup.children[Math.floor(Math.random() * polaroidGroup.children.length)];
-                    }
-                }
-                
-                if (!targetPhoto) return;
-                
-                // Đóng ảnh cũ nếu có
-                if (inspectedPhoto && inspectedPhoto !== targetPhoto) {
-                    const oldPhoto = inspectedPhoto;
-                    polaroidGroup.attach(oldPhoto);
-                    const oldT = isGalleryMode ? oldPhoto.userData.targetPos : oldPhoto.userData.startPos;
-                    const oldR = oldPhoto.userData.targetRot;
-                    gsap.to(oldPhoto.position, { x: oldT.x, y: oldT.y, z: oldT.z, duration: 0.2, ease: "power2.in" });
-                    gsap.to(oldPhoto.scale, { x: 1, y: 1, z: 1, duration: 0.2 });
-                    gsap.to(oldPhoto.material, { opacity: isGalleryMode ? 1 : 0, duration: 0.2 });
-                }
-                
-                inspectedPhoto = targetPhoto;
-                scene.attach(inspectedPhoto); 
-                inspectedPhoto.visible = true; 
-                inspectedPhoto.material.opacity = 1;
-                
-                // ANIMATION NHANH HƠN - từ 0.8s xuống 0.25s
-                gsap.to(inspectedPhoto.position, { 
-                    x: 0, 
-                    y: 0, 
-                    z: camera.position.z - 2.5, 
-                    duration: 0.25, 
-                    ease: "power2.out" 
-                });
-                gsap.to(inspectedPhoto.rotation, { 
-                    x: 0, 
-                    y: 0, 
-                    z: 0, 
-                    duration: 0.25 
-                }); 
-                gsap.to(inspectedPhoto.scale, { 
-                    x: 1.4, 
-                    y: 1.4, 
-                    z: 1.4, 
-                    duration: 0.25 
-                }); 
+                if (inspectedPhoto || now - lastDropTime < 0.8) return; inspectedPhoto = getClosestPolaroid(); if (!inspectedPhoto) return;
+                scene.attach(inspectedPhoto); inspectedPhoto.visible = true; inspectedPhoto.material.opacity = 1;
+                gsap.to(inspectedPhoto.position, { x: 0, y: 0, z: camera.position.z - 2.5, duration: 0.8, ease: "back.out(1.2)" });
+                gsap.to(inspectedPhoto.rotation, { x: 0, y: 0, z: 0, duration: 0.8 }); gsap.to(inspectedPhoto.scale, { x: 1.4, y: 1.4, z: 1.4, duration: 0.8 }); 
             } else {
-                if (!inspectedPhoto) return; 
-                const p = inspectedPhoto; 
-                inspectedPhoto = null; 
-                lastDropTime = now; 
-                polaroidGroup.attach(p); 
-                const t = isGalleryMode ? p.userData.targetPos : p.userData.startPos; 
-                const r = p.userData.targetRot;
-                // Đóng nhanh hơn - từ 0.7-0.8s xuống 0.2s
-                gsap.to(p.position, { x: t.x, y: t.y, z: t.z, duration: 0.2, ease: "power2.in" }); 
-                gsap.to(p.scale, { x: 1, y: 1, z: 1, duration: 0.2 });
-                if (isGalleryMode) gsap.to(p.rotation, { x: 0, y: r.y, z: r.z, duration: 0.2, ease: "power2.out" }); 
-                else gsap.to(p.material, { opacity: 0, duration: 0.2 });
+                if (!inspectedPhoto) return; const p = inspectedPhoto; inspectedPhoto = null; lastDropTime = now; 
+                polaroidGroup.attach(p); const t = isGalleryMode ? p.userData.targetPos : p.userData.startPos; const r = p.userData.targetRot;
+                gsap.to(p.position, { x: t.x, y: t.y, z: t.z, duration: 0.8, ease: "back.out(1.0)" }); gsap.to(p.scale, { x: 1, y: 1, z: 1, duration: 0.7 });
+                if (isGalleryMode) gsap.to(p.rotation, { x: 0, y: r.y, z: r.z, duration: 0.7, ease: "power2.out" }); else gsap.to(p.material, { opacity: 0, duration: 0.5 });
             }
         }
 
-        function animatePhotoExplosion() {
-            if (!isGalleryMode || !polaroidGroup) return;
-            const now = clock.getElapsedTime();
-            if (now - lastExplosionTime < EXPLOSION_COOLDOWN) return;
-            lastExplosionTime = now;
-
-            // Lấy vị trí trung tâm camera
-            const centerX = camera.position.x;
-            const centerY = camera.position.y;
-            const centerZ = camera.position.z - 3;
-
-            // Bùng nổ tất cả ảnh ra xung quanh - MƯỢT MÀ HƠN
-            polaroidGroup.children.forEach((polaroid, index) => {
-                if (polaroid === inspectedPhoto) return;
-                
-                // Lưu vị trí ban đầu để quay về
-                const startPos = polaroid.position.clone();
-                const startRot = polaroid.rotation.clone();
-                const startScale = polaroid.scale.clone();
-                
-                // Tạo hướng bùng nổ đều đặn hơn
-                const angle = (index / polaroidGroup.children.length) * Math.PI * 2;
-                const spreadAngle = angle + (Math.random() - 0.5) * 0.5; // Thêm một chút ngẫu nhiên
-                const radius = 10 + Math.random() * 3; // Khoảng cách bùng nổ xa hơn
-                const heightVariation = (Math.random() - 0.5) * 4; // Độ cao ngẫu nhiên
-                
-                const explodeX = centerX + Math.cos(spreadAngle) * radius;
-                const explodeY = centerY + Math.sin(spreadAngle * 0.3) * 2 + heightVariation;
-                const explodeZ = centerZ + Math.sin(spreadAngle) * radius;
-                
-                // Rotation với physics-like motion (quay nhiều vòng)
-                const randomRotX = (Math.random() - 0.5) * Math.PI * 4; // Quay nhiều vòng hơn
-                const randomRotY = (Math.random() - 0.5) * Math.PI * 4;
-                const randomRotZ = (Math.random() - 0.5) * Math.PI * 4;
-                
-                // Tạo timeline để đồng bộ tất cả animations
-                const tl = gsap.timeline();
-                
-                // Phase 1: Phóng to nhanh (0.2s)
-                tl.to(polaroid.scale, {
-                    x: 1.6,
-                    y: 1.6,
-                    z: 1.6,
-                    duration: 0.2,
-                    ease: "power3.out"
-                });
-                
-                // Phase 2: Bắt đầu bùng nổ (0.1s overlap)
-                tl.to(polaroid.scale, {
-                    x: 1.2,
-                    y: 1.2,
-                    z: 1.2,
-                    duration: 0.3,
-                    ease: "power2.inOut"
-                }, "-=0.1");
-                
-                // Phase 3: Di chuyển ra xa với motion mượt mà hơn
-                tl.to(polaroid.position, {
-                    x: explodeX,
-                    y: explodeY,
-                    z: explodeZ,
-                    duration: 0.8,
-                    ease: "power1.out" // Motion tự nhiên hơn, không quá cứng
-                }, "-=0.2");
-                
-                // Quay với momentum (quay nhanh rồi chậm dần)
-                tl.to(polaroid.rotation, {
-                    x: randomRotX,
-                    y: randomRotY,
-                    z: randomRotZ,
-                    duration: 0.8,
-                    ease: "power1.out"
-                }, "-=0.8");
-                
-                // Phase 4: Quay về vị trí ban đầu với elastic bounce mượt mà
-                tl.to(polaroid.scale, {
-                    x: 1,
-                    y: 1,
-                    z: 1,
-                    duration: 1.2,
-                    ease: "elastic.out(1, 0.6)" // Mượt mà hơn
-                }, "+=0.2");
-                
-                tl.to(polaroid.position, {
-                    x: polaroid.userData.targetPos.x,
-                    y: polaroid.userData.targetPos.y,
-                    z: polaroid.userData.targetPos.z,
-                    duration: 1.5,
-                    ease: "elastic.out(1, 0.5)" // Bounce mượt mà
-                }, "-=1.0");
-                
-                tl.to(polaroid.rotation, {
-                    x: 0,
-                    y: polaroid.userData.targetRot.y,
-                    z: polaroid.userData.targetRot.z,
-                    duration: 1.5,
-                    ease: "elastic.out(1, 0.5)"
-                }, "-=1.5");
-                
-                // Delay từng ảnh một để tạo hiệu ứng cascade mượt mà
-                tl.delay(index * 0.015); // Delay ngắn hơn nhưng nhiều ảnh hơn
-            });
-        }
-
-        async function initHandTracking() {
-            const video = document.getElementById('input_video');
-            const cameraVideo = document.getElementById('camera-video');
-            const canvas = document.getElementById('webcam-canvas');
-            const ctx = canvas.getContext('2d');
-            const stats = document.getElementById('cam-stats');
-            
-            // 1️⃣ GỌI CAMERA BẰNG JAVASCRIPT
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        facingMode: 'user'
-                    } 
-                });
-                
-                // Gắn stream vào video elements
-                video.srcObject = stream;
-                cameraVideo.srcObject = stream;
-                
-                // Chờ video ready
-                await new Promise((resolve) => {
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        cameraVideo.play();
-                        resolve();
-                    };
-                });
-                
-                console.log('✅ Camera đã được kích hoạt thành công!');
-                
-                // Khi camera bắt đầu, phát audio (user interaction đã xảy ra)
-                const audio = document.getElementById('bg-music');
-                if (audio) {
-                    audio.volume = 0.7;
-                    audio.loop = true;
-                    audio.play().then(() => {
-                        console.log("✅ Nhạc phát sau khi camera bắt đầu!");
-                    }).catch(e => {
-                        console.log("⚠️ Chưa thể phát nhạc:", e.message);
-                        // Thử lại sau 0.3s
-                        setTimeout(() => {
-                            audio.play().catch(() => console.log("❌ Vẫn không phát được"));
-                        }, 300);
-                    });
-                }
-            } catch (error) {
-                console.error('❌ Lỗi khi truy cập camera:', error);
-                alert('Không thể truy cập camera. Vui lòng cấp quyền camera cho trang web.');
-                return;
-            }
-            
-            // 2️⃣ THIẾT LẬP MEDIAPIPE HANDS CHO GESTURE DETECTION
-            const hands = new Hands({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-            });
+        function initHandTracking() {
+            const video = document.getElementById('input_video'); const canvas = document.getElementById('webcam-canvas'); const ctx = canvas.getContext('2d'); const stats = document.getElementById('cam-stats');
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             
             hands.setOptions({
                 maxNumHands: 1, 
@@ -920,88 +596,25 @@
                 minTrackingConfidence: 0.5
             }); 
             
-            // 3️⃣ GẮN CAMERA VÀO LOGIC GESTURE (MEDIAPIPE HANDS)
             hands.onResults(results => {
-                if (!video.videoWidth || !video.videoHeight) return;
-                
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                ctx.save();
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-                
-                // Reset gesture state
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
                 STATE.hand.gesture = 'NONE';
-                
                 if (results.multiHandLandmarks.length > 0) {
-                    STATE.hand.detected = true;
-                    const lm = results.multiHandLandmarks[0];
-                    
-                    // Cập nhật vị trí tay với smoothing để tránh giật lag
-                    const rawX = 1 - lm[0].x;
-                    const rawY = lm[0].y;
-                    
-                    STATE.hand.x = rawX;
-                    STATE.hand.y = rawY;
-                    
-                    // Smoothing vị trí tay để chuyển động mượt mà hơn
-                    STATE.hand.smoothedX += (rawX - STATE.hand.smoothedX) * HAND_SMOOTHING;
-                    STATE.hand.smoothedY += (rawY - STATE.hand.smoothedY) * HAND_SMOOTHING;
-                    
-                    // Phát hiện các ngón tay
-                    const tips = [8, 12, 16, 20]; // Đầu ngón tay
-                    const pips = [6, 10, 14, 18]; // Khớp ngón tay
-                    let extended = [];
-                    
-                    for(let i = 0; i < 4; i++) {
-                        extended.push(
-                            Math.hypot(lm[tips[i]].x - lm[0].x, lm[tips[i]].y - lm[0].y) > 
-                            Math.hypot(lm[pips[i]].x - lm[0].x, lm[pips[i]].y - lm[0].y)
-                        );
-                    }
-                    
+                    STATE.hand.detected = true; const lm = results.multiHandLandmarks[0]; STATE.hand.x = 1 - lm[0].x; STATE.hand.y = lm[0].y; 
+                    const tips = [8, 12, 16, 20]; const pips = [6, 10, 14, 18]; let extended = [];
+                    for(let i=0; i<4; i++) extended.push(Math.hypot(lm[tips[i]].x - lm[0].x, lm[tips[i]].y - lm[0].y) > Math.hypot(lm[pips[i]].x - lm[0].x, lm[pips[i]].y - lm[0].y));
                     const pinchDist = Math.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y);
-                    // Kiểm tra ngón cái (xét theo chiều ngang vì ngón cái di chuyển khác)
-                    // Landmark: 4 = thumb tip, 3 = thumb IP, 2 = thumb MCP, 5 = thumb CMC
-                    // Với tay trái: ngón cái giơ lên khi tip.x > IP.x
-                    // Với tay phải: ngón cái giơ lên khi tip.x < IP.x
-                    // Sử dụng độ dài để chính xác hơn
-                    const thumbExtended = Math.hypot(lm[4].x - lm[2].x, lm[4].y - lm[2].y) > 
-                                         Math.hypot(lm[3].x - lm[2].x, lm[3].y - lm[2].y);
-                    extended.push(thumbExtended);
-                    
-                    // Đếm tổng số ngón tay giơ lên (0-5)
-                    const fingersUp = extended.filter(e => e === true).length;
-                    STATE.hand.fingersCount = fingersUp;
-                    
-                    const isFist = fingersUp === 0;
+                    const isFist = extended.every(e => e === false);
 
-                    // Xác định cử chỉ
-                    if (extended[0] && extended[1] && !extended[2] && !extended[3] && !extended[4]) {
-                        STATE.hand.gesture = 'VICTORY';
-                    } else if (isFist) {
-                        STATE.hand.gesture = 'FIST';
-                    } else if (pinchDist < 0.05) {
-                        STATE.hand.gesture = 'PINCH'; 
-                    } else if (fingersUp >= 4) {
-                        // Xòe tay ra (4-5 ngón) → OPEN
-                        STATE.hand.gesture = 'OPEN';
-                    } else if (fingersUp >= 1 && fingersUp <= 5) {
-                        // Giơ 1-5 ngón tay → FINGER_1, FINGER_2, ..., FINGER_5
-                        STATE.hand.gesture = `FINGER_${fingersUp}`;
-                    } else {
-                        STATE.hand.gesture = 'OPEN';
-                    }
-                } else {
-                    if(STATE.hand.detected) {
-                        STATE.hand.detected = false;
-                        STATE.hand.gesture = 'NONE';
-                    }
-                }
+                    if (extended[0] && extended[1] && !extended[2] && !extended[3]) STATE.hand.gesture = 'VICTORY';
+                    else if (isFist) STATE.hand.gesture = 'FIST';
+                    else if (pinchDist < 0.05) STATE.hand.gesture = 'PINCH'; 
+                    else STATE.hand.gesture = 'OPEN';
+                } else { if(STATE.hand.detected) { STATE.hand.detected = false; STATE.hand.gesture = 'NONE'; } }
                 ctx.restore();
             });
 
-            // Xử lý frames từ camera
             let frameCounter = 0;
             const cameraUtils = new Camera(video, { 
                 onFrame: async () => { 
@@ -1022,160 +635,44 @@
             const time = clock.getElapsedTime();
             
             if (mixer) mixer.update(dt);
-            // Tối ưu: Chỉ update khi cần thiết
-            updateLyrics(); // Luôn update lyrics (nhẹ)
-            
-            // Update particles chỉ khi không phải firework mode
-            if (!isFireworkMode) {
-                updateParticles(time); 
-                updatePolaroids(time);
-            }
-            
-            // Background particles update ít thường xuyên hơn
-            if (Math.floor(time * 2) % 2 === 0) {
-                updateBackgroundParticles(time, dt);
-            }
+            updateLyrics(); updateParticles(time); updatePolaroids(time); updateBackgroundParticles(time, dt);
             
             const currentGesture = STATE.hand.gesture;
-            const fingersCount = STATE.hand.fingersCount;
 
-            if (currentGesture === 'VICTORY' && lastGesture !== 'VICTORY') {
-                toggleMode();
-                // Hiển thị ảnh ngay khi VICTORY trong gallery mode
-                if (isGalleryMode && !inspectedPhoto) {
-                    animatePhotoPopup(true);
-                }
-            }
-            
-            // PINCH - hiển thị ảnh gần nhất
-            if (currentGesture === 'PINCH') { 
-                isZoomedIn = true; 
-                if (isGalleryMode) animatePhotoPopup(true); 
-            }
-            
-            // BẤT KỲ CỬ CHỈ NÀO TRONG GALLERY MODE → HIỂN THỊ ẢNH NGAY
-            if (isGalleryMode && !isFireworkMode && !inspectedPhoto) {
-                // Nếu có cử chỉ bất kỳ (không phải NONE) → hiển thị ảnh
-                if (currentGesture !== 'NONE' && currentGesture !== 'OPEN') {
-                    animatePhotoPopup(true);
-                }
-            }
-            
-            // 🖐️ XÒE TAY RA (OPEN) → HIỂN THỊ CHỮ "MERRY CHRISTMAS Lan YÊU"
-            if (currentGesture === 'OPEN' && fingersCount >= 4) { 
-                // Hiển thị secret message
-                if (!isFireworkMode) {
-                    const secretMsg = document.getElementById('secret-message');
-                    if (secretMsg) {
-                        gsap.to(secretMsg, { opacity: 1, duration: 0.5, scale: 1.1 });
-                    }
-                }
-                
+            if (currentGesture === 'VICTORY' && lastGesture !== 'VICTORY') toggleMode();
+            if (currentGesture === 'PINCH') { isZoomedIn = true; if (isGalleryMode) animatePhotoPopup(true); }
+            if (currentGesture === 'OPEN') { 
                 isZoomedIn = false; 
                 if (isGalleryMode) animatePhotoPopup(false); 
                 if (isFireworkMode) exitFireworkMode(); 
-                
-                // 🎆 BÙNG NỔ ẢNH KHI MỞ TAY RA TỪ NẮM TAY
-                if (wasFistBefore && isGalleryMode && !isFireworkMode) {
-                    animatePhotoExplosion();
-                    wasFistBefore = false; // Reset sau khi bùng nổ
-                }
-            } else {
-                // Ẩn secret message khi không xòe tay
-                if (currentGesture !== 'OPEN' && !isFireworkMode) {
-                    const secretMsg = document.getElementById('secret-message');
-                    if (secretMsg && secretMsg.style.opacity !== '0') {
-                        gsap.to(secretMsg, { opacity: 0, duration: 0.3, scale: 1 });
-                    }
-                }
             }
-            
-            // 👆 GIƠ NGÓN TAY (1-5) → PHÓNG TO ẢNH TƯƠNG ỨNG - NHANH HƠN
-            if (currentGesture.startsWith('FINGER_')) {
-                const fingerNum = parseInt(currentGesture.split('_')[1]);
-                if (fingerNum >= 1 && fingerNum <= TOTAL_PHOTOS && isGalleryMode && !isFireworkMode) {
-                    isZoomedIn = true;
-                    // Phóng to ảnh số tương ứng NGAY LẬP TỨC
-                    animatePhotoPopup(true, fingerNum);
-                }
-            } else if (!currentGesture.startsWith('FINGER_') && !currentGesture.startsWith('OPEN') && isZoomedIn && inspectedPhoto) {
-                // Chỉ đóng khi có cử chỉ rõ ràng để đóng
-                if (currentGesture === 'NONE' || currentGesture === 'FIST') {
-                    isZoomedIn = false;
-                    animatePhotoPopup(false);
-                }
-            }
-            // Đánh dấu khi nắm tay (FIST) - chuẩn bị cho bùng nổ
-            if (currentGesture === 'FIST' && isGalleryMode && !isFireworkMode) { 
-                wasFistBefore = true;
-            } else if (currentGesture !== 'FIST') {
-                // Reset trạng thái khi không còn nắm tay
-                if (currentGesture !== 'OPEN' || !wasFistBefore) {
-                    wasFistBefore = false;
-                }
-            }
-            
-            // Long press FIST để trigger firework mode (giữ nguyên từ touch controls)
+            if (currentGesture === 'FIST' && isGalleryMode && !isFireworkMode) { triggerFireworkMode(); }
 
             lastGesture = currentGesture;
 
             if (isTouching) {
                 
             } else if (STATE.hand.detected) {
-                // Sử dụng smoothed position để điều khiển mượt mà hơn
-                // Tính toán rotation target dựa trên vị trí tay (trái/phải, lên/xuống)
-                const handXDelta = STATE.hand.smoothedX - 0.5; // -0.5 đến 0.5 (trái đến phải)
-                const handYDelta = STATE.hand.smoothedY - 0.5; // -0.5 đến 0.5 (trên đến dưới)
+                const targetY = (STATE.hand.x - 0.5) * (Math.PI * 6.0); 
+                const targetX = (STATE.hand.y - 0.5) * (Math.PI * 1.0); 
                 
-                // Điều khiển sang trái/phải với độ nhạy cao hơn và mượt mà
-                const targetY = handXDelta * (Math.PI * HAND_SENSITIVITY); 
-                const targetX = handYDelta * (Math.PI * 1.5); 
-                
-                // Interpolation mượt mà hơn cho rotation
-                STATE.currentRotation.x += (targetX - STATE.currentRotation.x) * ROTATION_SMOOTHING;
-                STATE.currentRotation.y += (targetY - STATE.currentRotation.y) * ROTATION_SMOOTHING;
+                STATE.currentRotation.x += (targetX - STATE.currentRotation.x) * 0.1;
+                STATE.currentRotation.y += (targetY - STATE.currentRotation.y) * 0.1;
 
-                // Áp dụng rotation vào car model và polaroid group
                 if (inspectedPhoto === null) {
                      if (!isGalleryMode) { 
-                        // JAR CONTROL mode - điều khiển jar/car mượt mà
-                        if(carModel) { 
-                            carModel.rotation.y = STATE.currentRotation.y; 
-                            carModel.rotation.x = STATE.currentRotation.x; 
-                        }
+                        if(carModel) { carModel.rotation.y = STATE.currentRotation.y; carModel.rotation.x = STATE.currentRotation.x; }
                      } 
                      else if(carModel) { 
-                        // PHOTO GALLERY mode - điều khiển cả jar và gallery
                         carModel.rotation.y = STATE.currentRotation.y * 0.5; 
                         carModel.rotation.x = STATE.currentRotation.x * 0.5; 
-                        // Điều khiển polaroid group cùng với jar để mượt mà
-                        if (polaroidGroup && !isFireworkMode) {
-                            polaroidGroup.rotation.y = STATE.currentRotation.y;
-                            polaroidGroup.rotation.x = STATE.currentRotation.x * 0.3;
-                        }
                      }
                 }
-            } else {
-                // Khi không có tay - làm mượt rotation về trạng thái mặc định
-                if (!isGalleryMode && inspectedPhoto === null) {
-                    // Auto rotate khi không có tay trong JAR CONTROL mode
-                    STATE.currentRotation.y += 0.4 * dt; 
-                    STATE.currentRotation.x *= 0.95; // Giảm dần rotation X
-                    
-                    if(carModel) {
-                        carModel.rotation.y = STATE.currentRotation.y;
-                        carModel.rotation.x = STATE.currentRotation.x;
-                    }
-                } else if (isGalleryMode) {
-                    // Trong gallery mode, quay về trạng thái ban đầu mượt mà
-                    STATE.currentRotation.y += (0 - STATE.currentRotation.y) * 0.1;
-                    STATE.currentRotation.x += (0 - STATE.currentRotation.x) * 0.1;
-                    
-                    if (polaroidGroup && !isFireworkMode) {
-                        polaroidGroup.rotation.y = STATE.currentRotation.y;
-                        polaroidGroup.rotation.x = STATE.currentRotation.x * 0.3;
-                    }
-                }
+            } else if(carModel && !isGalleryMode && inspectedPhoto === null) { 
+                carModel.rotation.y += 0.4 * dt; 
+                carModel.rotation.x *= 0.95; 
+                STATE.currentRotation.y = carModel.rotation.y;
+                STATE.currentRotation.x = carModel.rotation.x;
             }
 
             if (!isGalleryMode) {
